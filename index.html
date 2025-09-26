@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>乐清育英学校七（六）班照片墙</title>
+  <style>
+    :root{
+      --bg:#ffffff;             /* 背景白色 */
+      --card:#f8fafc;           /* 面板淡灰 */
+      --accent:#22d3ee;         /* 青色点缀 */
+      --muted:#64748b;          /* 说明文字色 */
+      --radius:18px;
+      --speed-pps:70;           /* 像素/秒：控制整体滚动速度 */
+      --wall-h:66svh;           /* 照片展示区占屏高 2/3（svh 兼容移动端地址栏）*/
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans","PingFang SC","Microsoft YaHei",sans-serif;
+      color:#111827;
+      background:#ffffff;
+      min-height:100svh;
+      display:grid;
+      grid-template-rows:auto auto 1fr;
+      gap:14px;
+    }
+    header{padding:20px clamp(16px,4vw,40px) 8px}
+    h1{margin:0 0 6px;font-size:clamp(20px,3.6vw,36px);letter-spacing:.5px}
+    .sub{color:var(--muted);font-size:clamp(12px,2.4vw,14px)}
+
+    /* 上传区域 */
+    .dropzone{position:relative;border-radius:var(--radius);isolation:isolate}
+    .uploader{
+      margin:0 clamp(16px,4vw,40px);
+      border:1px dashed #cbd5e1;
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:clamp(14px,2.4vw,18px);
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      box-shadow:0 6px 18px #00000012 inset,0 6px 18px #00000008;
+    }
+    .uploader .left{display:grid;gap:6px}
+    .uploader b{color:#0f172a}
+    .uploader small{color:var(--muted)}
+    .actions{display:flex;gap:10px;align-items:center}
+
+    .btn{appearance:none;border:0;background:linear-gradient(135deg,#fca5a5,#fde68a,#86efac,#93c5fd,#c7d2fe);background-size:200% 200%;color:#0b1220;font-weight:700;padding:10px 16px;border-radius:12px;cursor:pointer;transition:transform .06s ease,filter .2s ease,background-position .8s ease;white-space:nowrap}
+    .btn:active{transform:translateY(1px) scale(.99)}
+    .btn:hover{background-position:100% 0}
+    .ghost{background:transparent;border:1px solid #cbd5e1;color:#111827}
+
+    .dropmask{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#22d3ee22;border:2px dashed #22d3ee;color:#0891b2;font-weight:700;font-size:18px;border-radius:var(--radius);z-index:5;backdrop-filter:blur(2px);pointer-events:none}
+    .dropzone.dragover .dropmask{display:flex}
+
+    /* 照片墙走马灯 */
+    .wall-wrap{margin:0;padding:8px 0 24px;position:relative;overflow:hidden;height:var(--wall-h)}
+    .wall{position:relative;width:100%;z-index:1}
+    .marquee{--duration:30s;display:flex;gap:0;width:max-content;will-change:transform;animation:scroll var(--duration) linear infinite}
+    .wall:hover .marquee{animation-play-state:paused}
+    @keyframes scroll{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+
+    .photo{height:var(--wall-h);max-height:var(--wall-h);object-fit:contain;display:block;user-select:none;background:#f8fafc;padding:6px;border-radius:12px;border:1px solid #e2e8f0}
+    .tile{position:relative;display:block;line-height:0;box-shadow:0 6px 18px #00000010;margin-right:12px}
+    .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0000 65%,#00000014 100%);pointer-events:none}
+
+    footer{padding:6px 16px 20px;text-align:center;color:var(--muted);font-size:12px;background:#ffffff}
+
+    /* 俏皮装饰（不遮挡图片） */
+    .decor{position:absolute;inset:0;pointer-events:none;z-index:0}
+    .confetti{position:absolute;top:0;left:8px;width:220px;height:60px;opacity:.9}
+    .squiggle{position:absolute;bottom:10px;right:0;width:40%;height:40px;opacity:.7}
+
+    /* 小屏优化 */
+    @media (max-width:640px){
+      .uploader{flex-direction:column;align-items:flex-start}
+      .actions{width:100%}
+      .btn{flex:1;text-align:center}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>乐清育英学校七（六）班照片墙</h1>
+    <div class="sub">在这里上传班级照片，页面将从右向左循环滚动展示。鼠标悬停可暂停播放。</div>
+  </header>
+
+  <section class="dropzone" id="dropzone">
+    <div class="uploader">
+      <div class="left">
+        <b>上传照片</b>
+        <small>支持拖拽或点击选择，建议清晰大图（JPG/PNG/WEBP）；可一次多选。</small>
+      </div>
+      <div class="actions">
+        <input id="fileInput" type="file" accept="image/*" multiple hidden />
+        <button class="btn" id="chooseBtn">选择图片</button>
+        <button class="btn ghost" id="clearBtn" title="清空当前已添加的照片">清空</button>
+        <button class="btn ghost" id="demoBtn" title="加载示例图片用于测试">加载示例</button>
+      </div>
+    </div>
+    <div class="dropmask">释放鼠标即可上传</div>
+  </section>
+
+  <section class="wall-wrap">
+    <!-- 俏皮装饰：彩纸、星星、波浪线 -->
+    <div class="decor" aria-hidden="true">
+      <svg class="confetti" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <circle cx="10" cy="12" r="3" fill="#f59e0b"/>
+        <circle cx="40" cy="8" r="4" fill="#22c55e"/>
+        <circle cx="80" cy="18" r="3" fill="#3b82f6"/>
+        <rect x="110" y="6" width="6" height="6" rx="1" fill="#ef4444"/>
+        <rect x="150" y="16" width="5" height="5" rx="1" fill="#a855f7"/>
+      </svg>
+      <svg class="squiggle" viewBox="0 0 300 40" preserveAspectRatio="none">
+        <path d="M0 20 Q30 0 60 20 T120 20 T180 20 T240 20 T300 20" stroke="#93c5fd" stroke-width="3" fill="none"/>
+      </svg>
+    </div>
+    <div class="wall" id="wall"><!-- JS 注入 --></div>
+  </section>
+
+  <footer>© 乐清育英学校 七（六）班 | 照片仅在本地浏览器内存中临时展示（未自动上传至服务器）。</footer>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const clearBtn  = document.getElementById('clearBtn');
+    const demoBtn   = document.getElementById('demoBtn');
+    const wall      = document.getElementById('wall');
+    const dropzone  = document.getElementById('dropzone');
+
+    let imageDataUrls = [];
+
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    clearBtn.addEventListener('click', () => { imageDataUrls = []; renderMarquee(); });
+
+    ['dragenter','dragover'].forEach(ev => {
+      document.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); });
+    });
+    ['dragleave','drop'].forEach(ev => {
+      document.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); });
+    });
+    document.addEventListener('drop', (e) => {
+      const files = e.dataTransfer && e.dataTransfer.files; if (files && files.length) handleFiles(files);
+    });
+
+    function handleFiles(fileList){
+      const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+      if(!files.length) return;
+      const readers = files.map(f => new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onerror = () => reject(fr.error);
+        fr.onload  = () => resolve(fr.result);
+        fr.readAsDataURL(f);
+      }));
+      Promise.all(readers).then(list => { imageDataUrls.push(...list); renderMarquee(); })
+      .catch(err => { console.error('读取图片失败', err); alert('有图片读取失败，请重试或更换 JPG/PNG/WEBP。'); });
+    }
+
+    function renderMarquee(){
+      wall.innerHTML = '';
+      if(!imageDataUrls.length){
+        const empty = document.createElement('div');
+        empty.style.color = '#94a3b8';
+        empty.style.padding = '8px 16px 0';
+        empty.textContent = '尚未添加照片，点击“选择图片”或将图片拖拽到此处。';
+        wall.appendChild(empty);
+        return;
+      }
+      const track = buildTrack(imageDataUrls);
+      const trackClone = track.cloneNode(true);
+      const marquee = document.createElement('div');
+      marquee.className = 'marquee';
+      marquee.appendChild(track);
+      marquee.appendChild(trackClone);
+      wall.appendChild(marquee);
+
+      const imgs = marquee.querySelectorAll('img');
+      const waits = Array.from(imgs).map(img => (img.decode ? img.decode().catch(()=>{}) : new Promise(res => img.onload = res)));
+      Promise.all(waits).then(() => {
+        const oneWidth = track.scrollWidth || track.getBoundingClientRect().width || 1;
+        const speed = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--speed-pps')) || 70;
+        const durationSec = Math.max(10, oneWidth / speed);
+        marquee.style.setProperty('--duration', durationSec + 's');
+      });
+    }
+
+    function buildTrack(urls){
+      const track = document.createElement('div');
+      track.style.display = 'flex';
+      track.style.gap = '0px';
+      for(const url of urls){
+        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.className = 'tile';
+        const img = document.createElement('img'); img.src = url; img.decoding = 'async'; img.className = 'photo'; img.alt = '七（六）班照片';
+        a.appendChild(img); track.appendChild(a);
+      }
+      return track;
+    }
+
+    demoBtn.addEventListener('click', () => {
+      const svg = (w,h,color,text) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><rect width='100%' height='100%' fill='${color}'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='32' fill='#111'>${text}</text></svg>`
+      )}`;
+      imageDataUrls = [
+        svg(1200,800,'#fde68a','横图 3:2'),
+        svg(800,1200,'#93c5fd','竖图 2:3'),
+        svg(1024,1024,'#86efac','方图 1:1')
+      ];
+      renderMarquee();
+    });
+
+    renderMarquee();
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { if(imageDataUrls.length) renderMarquee(); }, 150);
+    });
+  </script>
+</body>
+</html>
